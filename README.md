@@ -19,7 +19,7 @@ Ein Python-Dashboard zur Visualisierung des Studienfortschritts mit **pandas**, 
 
 1. Repository klonen oder Code herunterladen:
     ```bash
-    git clone https://github.com/DEIN_USERNAME/studien-dashboard.git
+    git clone https://github.com/chrissi82/studien-dashboard.git
     cd studien-dashboard
     ```
 
@@ -31,4 +31,4 @@ Ein Python-Dashboard zur Visualisierung des Studienfortschritts mit **pandas**, 
 ## Starten des Dashboards
 
 ```bash
-python dashboard.py# Studien-Dashboard
+python studien-dashboard.py
