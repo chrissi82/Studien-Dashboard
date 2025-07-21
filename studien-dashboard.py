@@ -1,532 +1,905 @@
-{
- "cells": [
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "id": "a451390c-e83b-47ca-a3a9-efad8e38ad72",
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "import json\n",
-    "import pandas as pd\n",
-    "import matplotlib.pyplot as plt\n",
-    "import tkinter as tk\n",
-    "from tkinter import ttk\n",
-    "from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg\n",
-    "\n",
-    "\n",
-    "class Studiengang:\n",
-    "    def __init__(self, name: str):\n",
-    "        \"\"\"\n",
-    "        Konstruktor der Klasse Studiengang.\n",
-    "        Wird aufgerufen, wenn ein neues Studiengang-Objekt erstellt wird.\n",
-    "\n",
-    "        :param name: Der Name des Studiengangs (z.B. 'Informatik')\n",
-    "        \"\"\"\n",
-    "        self.name = name  # Speichert den Namen des Studiengangs\n",
-    "        self.semester = []  # Liste, in der alle Semester-Objekte gespeichert werden\n",
-    "        self.gesamt_ects = 0  # Die Gesamtanzahl der ECTS-Punkte (wird berechnet)\n",
-    "        self.abschlussnote = None  # Die Abschlussnote (wird berechnet)\n",
-    "\n",
-    "    def berechne_gesamt_ects(self):\n",
-    "        \"\"\"\n",
-    "        Berechnet die Summe aller ECTS-Punkte aus allen Semestern.\n",
-    "        Geht davon aus, dass jedes Semester-Objekt eine Methode ects() hat,\n",
-    "        die die ECTS-Punkte dieses Semesters zurückgibt.\n",
-    "\n",
-    "        :return: Die Gesamtanzahl der ECTS-Punkte im Studiengang\n",
-    "        \"\"\"\n",
-    "        # Für jedes Semester in der Liste self.semester wird die Methode ects() aufgerufen.\n",
-    "        # Die Ergebnisse werden aufsummiert.\n",
-    "        self.gesamt_ects = sum(sem.ects() for sem in self.semester)\n",
-    "        return self.gesamt_ects\n",
-    "\n",
-    "    def berechne_abschlussnote(self):\n",
-    "        \"\"\"\n",
-    "        Berechnet die Abschlussnote des Studiengangs.\n",
-    "        Hier als Beispiel: Durchschnitt aller Noten aus allen Semestern.\n",
-    "        Geht davon aus, dass jedes Semester-Objekt eine Methode noten() hat,\n",
-    "        die eine Liste der Noten dieses Semesters zurückgibt.\n",
-    "\n",
-    "        :return: Die berechnete Abschlussnote (oder None, falls keine Noten vorhanden sind)\n",
-    "        \"\"\"\n",
-    "        noten = []  # Leere Liste für alle Noten\n",
-    "        for sem in self.semester:\n",
-    "            noten.extend(sem.noten())  # Alle Noten des Semesters zur Liste hinzufügen\n",
-    "        if noten:  # Wenn es Noten gibt\n",
-    "            self.abschlussnote = sum(noten) / len(noten)  # Durchschnitt berechnen\n",
-    "        else:\n",
-    "            self.abschlussnote = None  # Keine Noten vorhanden\n",
-    "        return self.abschlussnote\n",
-    "\n",
-    "    def alle_module(self):\n",
-    "        \"\"\"\n",
-    "        Gibt eine Liste aller Module aus allen Semestern zurück.\n",
-    "        Geht davon aus, dass jedes Semester-Objekt ein Attribut module hat,\n",
-    "        das eine Liste der Module dieses Semesters enthält.\n",
-    "\n",
-    "        :return: Eine Liste aller Module im Studiengang\n",
-    "        \"\"\"\n",
-    "        module = []  # Leere Liste für alle Module\n",
-    "        for sem in self.semester:\n",
-    "            module.extend(sem.module)  # Alle Module des Semesters zur Liste hinzufügen\n",
-    "        return module\n",
-    "\n",
-    "class Semester:\n",
-    "    def __init__(self, name: str):\n",
-    "        \"\"\"\n",
-    "        Konstruktor für ein Semester.\n",
-    "        :param name: Name des Semesters (z.B. '1. Semester')\n",
-    "        \"\"\"\n",
-    "        self.name = name  # Name des Semesters\n",
-    "        self.module = []  # Liste von Modulen (z.B. Module-Objekte)\n",
-    "\n",
-    "    def ects(self) -> int:\n",
-    "        \"\"\"\n",
-    "        Berechnet die Summe der ECTS-Punkte aller Module in diesem Semester.\n",
-    "        :return: Gesamt-ECTS dieses Semesters\n",
-    "        \"\"\"\n",
-    "        return sum(modul.ects for modul in self.module)\n",
-    "\n",
-    "    def noten(self) -> list:\n",
-    "        \"\"\"\n",
-    "        Gibt eine Liste aller Noten der Module in diesem Semester zurück.\n",
-    "        :return: Liste der Noten (z.B. [1.7, 2.3, 2.0])\n",
-    "        \"\"\"\n",
-    "        return [modul.note for modul in self.module if modul.note is not None]\n",
-    "\n",
-    "class Module:\n",
-    "    def __init__(self, titel: str, ects: int, pflicht: bool):\n",
-    "        \"\"\"\n",
-    "        Konstruktor für ein Modul.\n",
-    "\n",
-    "        :param titel: Name des Moduls\n",
-    "        :param ects: ECTS-Punkte des Moduls\n",
-    "        :param pflicht: True, wenn Pflichtmodul, sonst False\n",
-    "        \"\"\"\n",
-    "        self.titel = titel\n",
-    "        self.ects = ects\n",
-    "        self.pflicht = pflicht\n",
-    "        self.pruefungsleistungen = []  # Liste von Pruefungsleistung-Objekten\n",
-    "        self.note = None               # Die berechnete Note (z.B. 2.0)\n",
-    "        self.bewertung = None          # Textliche Bewertung (z.B. \"gut\")\n",
-    "\n",
-    "    def pruefungsleistung_hinzufuegen(self, pruefungsleistung: 'Pruefungsleistung'):\n",
-    "        \"\"\"\n",
-    "        Fügt eine Prüfungsleistung zum Modul hinzu.\n",
-    "\n",
-    "        :param pruefungsleistung: Ein Pruefungsleistung-Objekt\n",
-    "        \"\"\"\n",
-    "        self.pruefungsleistungen.append(pruefungsleistung)\n",
-    "        self.berechne_note_und_bewertung()\n",
-    "\n",
-    "    def berechne_note_und_bewertung(self):\n",
-    "        \"\"\"\n",
-    "        Berechnet die Note und Bewertung des Moduls anhand der Prüfungsleistungen\n",
-    "        und dem Bewertungsschema der Uni.\n",
-    "        \"\"\"\n",
-    "        # Gesamte erreichbare und erreichte Punkte berechnen\n",
-    "        gesamt_max = sum(p.max_punkte for p in self.pruefungsleistungen)\n",
-    "        gesamt_erreicht = sum(p.erreichte_punkte for p in self.pruefungsleistungen if p.erreichte_punkte is not None)\n",
-    "\n",
-    "        if gesamt_max == 0 or len(self.pruefungsleistungen) == 0:\n",
-    "            self.note = None\n",
-    "            self.bewertung = None\n",
-    "            return\n",
-    "\n",
-    "        prozent = (gesamt_erreicht / gesamt_max) * 100\n",
-    "\n",
-    "        # Bewertungsschema (wie zuvor)\n",
-    "        if prozent >= 96:\n",
-    "            self.note, self.bewertung = 1.0, \"sehr gut\"\n",
-    "        elif prozent >= 91:\n",
-    "            self.note, self.bewertung = 1.3, \"sehr gut\"\n",
-    "        elif prozent >= 86:\n",
-    "            self.note, self.bewertung = 1.7, \"gut\"\n",
-    "        elif prozent >= 81:\n",
-    "            self.note, self.bewertung = 2.0, \"gut\"\n",
-    "        elif prozent >= 76:\n",
-    "            self.note, self.bewertung = 2.3, \"gut\"\n",
-    "        elif prozent >= 71:\n",
-    "            self.note, self.bewertung = 2.7, \"befriedigend\"\n",
-    "        elif prozent >= 66:\n",
-    "            self.note, self.bewertung = 3.0, \"befriedigend\"\n",
-    "        elif prozent >= 61:\n",
-    "            self.note, self.bewertung = 3.3, \"befriedigend\"\n",
-    "        elif prozent >= 56:\n",
-    "            self.note, self.bewertung = 3.7, \"ausreichend\"\n",
-    "        elif prozent >= 50:\n",
-    "            self.note, self.bewertung = 4.0, \"ausreichend\"\n",
-    "        else:\n",
-    "            self.note, self.bewertung = 5.0, \"nicht ausreichend\"\n",
-    "\n",
-    "    def ist_bestanden(self) -> bool:\n",
-    "        \"\"\"\n",
-    "        Prüft, ob das Modul bestanden ist (Note <= 4.0).\n",
-    "        :return: True, wenn bestanden, sonst False\n",
-    "        \"\"\"\n",
-    "        return self.note is not None and self.note <= 4.0\n",
-    "\n",
-    "    def erreichte_ects(self) -> int:\n",
-    "        \"\"\"\n",
-    "        Gibt die ECTS-Punkte zurück, wenn das Modul bestanden ist, sonst 0.\n",
-    "        :return: ECTS-Punkte (int), wenn bestanden, sonst 0\n",
-    "        \"\"\"\n",
-    "        return self.ects if self.ist_bestanden() else 0\n",
-    "\n",
-    "    def __str__(self):\n",
-    "        \"\"\"\n",
-    "        Gibt eine lesbare Textdarstellung des Moduls zurück.\n",
-    "        :return: String mit Modulinfos\n",
-    "        \"\"\"\n",
-    "        status = \"bestanden\" if self.ist_bestanden() else \"nicht bestanden\"\n",
-    "        note_str = f\"{self.note:.1f}\" if self.note is not None else \"keine Note\"\n",
-    "        bewertung_str = self.bewertung if self.bewertung is not None else \"keine Bewertung\"\n",
-    "        pflicht_str = \"Pflichtmodul\" if self.pflicht else \"Wahlmodul\"\n",
-    "        return (f\"{self.titel} ({pflicht_str}, {self.ects} ECTS, \"\n",
-    "                f\"Note: {note_str}, Bewertung: {bewertung_str}, {status})\")\n",
-    "\n",
-    "class User:\n",
-    "    def __init__(self, name: str, matrikelnummer: str, studiengang: 'Studiengang',\n",
-    "                 ziel_abschluss_jahre: int = 3, ziel_note: float = 2.0):\n",
-    "        \"\"\"\n",
-    "        Konstruktor für einen User (Studierenden).\n",
-    "\n",
-    "        :param name: Name des Users (z.B. 'Max Mustermann')\n",
-    "        :param matrikelnummer: Matrikelnummer des Users (z.B. '1234567')\n",
-    "        :param studiengang: Ein Studiengang-Objekt, das den Studiengang des Users repräsentiert\n",
-    "        :param ziel_abschluss_jahre: In wie vielen Jahren der Abschluss geschafft werden soll (Standard: 3)\n",
-    "        :param ziel_note: Gewünschter maximaler Notendurchschnitt (Standard: 2.0)\n",
-    "        \"\"\"\n",
-    "        self.name = name\n",
-    "        self.matrikelnummer = matrikelnummer\n",
-    "        self.studiengang = studiengang\n",
-    "        self.ziel_abschluss_jahre = ziel_abschluss_jahre\n",
-    "        self.ziel_note = ziel_note\n",
-    "\n",
-    "    def user_info(self) -> str:\n",
-    "        \"\"\"\n",
-    "        Gibt eine kurze Übersicht über den User und seinen Studiengang zurück.\n",
-    "\n",
-    "        :return: String mit User-Informationen\n",
-    "        \"\"\"\n",
-    "        return (f\"Name: {self.name}\\n\"\n",
-    "                f\"Matrikelnummer: {self.matrikelnummer}\\n\"\n",
-    "                f\"Studiengang: {self.studiengang.name}\")\n",
-    "\n",
-    "    def aktueller_ects(self) -> int:\n",
-    "        \"\"\"\n",
-    "        Gibt die aktuell im Studiengang erreichten ECTS-Punkte zurück.\n",
-    "\n",
-    "        :return: Anzahl der ECTS-Punkte\n",
-    "        \"\"\"\n",
-    "        return self.studiengang.berechne_gesamt_ects()\n",
-    "\n",
-    "    def aktuelle_abschlussnote(self):\n",
-    "        \"\"\"\n",
-    "        Gibt die aktuelle Abschlussnote des Users zurück (sofern berechenbar).\n",
-    "\n",
-    "        :return: Abschlussnote (float) oder None\n",
-    "        \"\"\"\n",
-    "        return self.studiengang.berechne_abschlussnote()\n",
-    "\n",
-    "    def ziel_abschluss_erreicht(self) -> bool:\n",
-    "        \"\"\"\n",
-    "        Prüft, ob der Abschluss innerhalb der Zieljahre erreicht wurde.\n",
-    "        Annahme: 2 Semester pro Jahr.\n",
-    "        Optional: Passe die ECTS-Grenze an deinen Studiengang an (z.B. 180 für Bachelor).\n",
-    "        \"\"\"\n",
-    "        anzahl_semester = len(self.studiengang.semester)\n",
-    "        max_semester = self.ziel_abschluss_jahre * 2\n",
-    "        return (anzahl_semester <= max_semester and\n",
-    "                self.studiengang.berechne_gesamt_ects() >= 180)  # Beispiel: 180 ECTS für Bachelor\n",
-    "\n",
-    "    def ziel_note_erreicht(self) -> bool:\n",
-    "        \"\"\"\n",
-    "        Prüft, ob der Notendurchschnitt das Ziel erfüllt.\n",
-    "\n",
-    "        :return: True, wenn der Notendurchschnitt ≤ Zielnote, sonst False\n",
-    "        \"\"\"\n",
-    "        note = self.studiengang.berechne_abschlussnote()\n",
-    "        return note is not None and note <= self.ziel_note\n",
-    "\n",
-    "    def ziel_status(self) -> str:\n",
-    "        \"\"\"\n",
-    "        Gibt eine Übersicht, ob die Ziele erreicht wurden.\n",
-    "\n",
-    "        :return: String mit Zielstatus\n",
-    "        \"\"\"\n",
-    "        status_abschluss = \"erreicht\" if self.ziel_abschluss_erreicht() else \"nicht erreicht\"\n",
-    "        status_note = \"erreicht\" if self.ziel_note_erreicht() else \"nicht erreicht\"\n",
-    "        return (f\"Ziel Abschluss in {self.ziel_abschluss_jahre} Jahren: {status_abschluss}\\n\"\n",
-    "                f\"Ziel Notendurchschnitt ≤ {self.ziel_note}: {status_note}\")\n",
-    "\n",
-    "    def __str__(self):\n",
-    "        \"\"\"\n",
-    "        Gibt eine kompakte Textdarstellung des Users zurück.\n",
-    "\n",
-    "        :return: String mit Userdaten\n",
-    "        \"\"\"\n",
-    "        return f\"{self.name} ({self.matrikelnummer}), Studiengang: {self.studiengang.name}\"\n",
-    "        \n",
-    "class Pruefungsleistung:\n",
-    "    def __init__(self, titel: str, max_punkte: float, erreichte_punkte: float = None, datum: str = None):\n",
-    "        \"\"\"\n",
-    "        Konstruktor für eine Prüfungsleistung.\n",
-    "\n",
-    "        :param titel: Name der Prüfungsleistung (z.B. 'Klausur', 'Hausarbeit')\n",
-    "        :param max_punkte: Maximale erreichbare Punktzahl\n",
-    "        :param erreichte_punkte: Erreichte Punktzahl (optional, kann None sein)\n",
-    "        :param datum: Datum der Prüfungsleistung (optional, z.B. '2024-07-15')\n",
-    "        \"\"\"\n",
-    "        self.titel = titel  # Name der Prüfungsleistung\n",
-    "        self.max_punkte = max_punkte  # Maximale Punktzahl\n",
-    "        self.erreichte_punkte = erreichte_punkte  # Erreichte Punktzahl (kann None sein)\n",
-    "        self.datum = datum  # Datum der Prüfungsleistung (optional)\n",
-    "\n",
-    "    def prozent(self) -> float:\n",
-    "        \"\"\"\n",
-    "        Berechnet den Prozentsatz der erreichten Punkte.\n",
-    "\n",
-    "        :return: Prozentwert (0-100) oder None, falls keine Punkte eingetragen sind\n",
-    "        \"\"\"\n",
-    "        if self.erreichte_punkte is not None and self.max_punkte > 0:\n",
-    "            return (self.erreichte_punkte / self.max_punkte) * 100\n",
-    "        return None\n",
-    "\n",
-    "    def ist_bestanden(self, grenze: float = 50.0) -> bool:\n",
-    "        \"\"\"\n",
-    "        Prüft, ob die Prüfungsleistung bestanden ist.\n",
-    "        Standardmäßig gilt 50% als Bestehensgrenze.\n",
-    "\n",
-    "        :param grenze: Prozentgrenze zum Bestehen (Standard: 50.0)\n",
-    "        :return: True, wenn bestanden, sonst False\n",
-    "        \"\"\"\n",
-    "        p = self.prozent()\n",
-    "        return p is not None and p >= grenze\n",
-    "\n",
-    "    def __str__(self):\n",
-    "        \"\"\"\n",
-    "        Gibt eine lesbare Textdarstellung der Prüfungsleistung zurück.\n",
-    "\n",
-    "        :return: String mit Infos zur Prüfungsleistung\n",
-    "        \"\"\"\n",
-    "        punkte_str = f\"{self.erreichte_punkte}/{self.max_punkte}\" if self.erreichte_punkte is not None else f\"0/{self.max_punkte}\"\n",
-    "        prozent_str = f\"{self.prozent():.1f}%\" if self.prozent() is not None else \"k.A.\"\n",
-    "        status = \"bestanden\" if self.ist_bestanden() else \"nicht bestanden\"\n",
-    "        datum_str = f\", Datum: {self.datum}\" if self.datum else \"\"\n",
-    "        return f\"{self.titel}: {punkte_str} Punkte ({prozent_str}), {status}{datum_str}\"\n",
-    "\n",
-    "\n",
-    "class Datenmanager:\n",
-    "    def __init__(self, dateiname: str):\n",
-    "        \"\"\"\n",
-    "        Konstruktor für den Datenmanager.\n",
-    "\n",
-    "        :param dateiname: Name der JSON-Datei, in der die Daten gespeichert werden sollen\n",
-    "        \"\"\"\n",
-    "        self.dateiname = dateiname\n",
-    "\n",
-    "    def daten_speichern(self, user_liste: list):\n",
-    "        \"\"\"\n",
-    "        Speichert eine Liste von User-Objekten (und deren verschachtelte Daten) in einer JSON-Datei.\n",
-    "\n",
-    "        :param user_liste: Liste von User-Objekten\n",
-    "        \"\"\"\n",
-    "        # Wir müssen die Objekte in ein serialisierbares Format (z.B. Dictionaries) umwandeln\n",
-    "        daten = [self.user_zu_dict(user) for user in user_liste]\n",
-    "        with open(self.dateiname, 'w', encoding='utf-8') as f:\n",
-    "            json.dump(daten, f, ensure_ascii=False, indent=4)\n",
-    "\n",
-    "    def daten_laden(self) -> list:\n",
-    "        \"\"\"\n",
-    "        Lädt die Daten aus der JSON-Datei und gibt eine Liste von User-Objekten zurück.\n",
-    "\n",
-    "        :return: Liste von User-Objekten\n",
-    "        \"\"\"\n",
-    "        try:\n",
-    "            with open(self.dateiname, 'r', encoding='utf-8') as f:\n",
-    "                daten = json.load(f)\n",
-    "            return [self.dict_zu_user(user_dict) for user_dict in daten]\n",
-    "        except FileNotFoundError:\n",
-    "            return []\n",
-    "\n",
-    "    # Hilfsmethoden für die Umwandlung zwischen Objekten und Dictionaries\n",
-    "\n",
-    "    def user_zu_dict(self, user):\n",
-    "        \"\"\"\n",
-    "        Wandelt ein User-Objekt (mit allen verschachtelten Objekten) in ein Dictionary um.\n",
-    "        \"\"\"\n",
-    "        return {\n",
-    "            \"name\": user.name,\n",
-    "            \"matrikelnummer\": user.matrikelnummer,\n",
-    "            \"studiengang\": self.studiengang_zu_dict(user.studiengang)\n",
-    "        }\n",
-    "\n",
-    "    def studiengang_zu_dict(self, studiengang):\n",
-    "        return {\n",
-    "            \"name\": studiengang.name,\n",
-    "            \"semester\": [self.semester_zu_dict(sem) for sem in studiengang.semester]\n",
-    "        }\n",
-    "\n",
-    "    def semester_zu_dict(self, semester):\n",
-    "        return {\n",
-    "            \"name\": semester.name,\n",
-    "            \"module\": [self.module_zu_dict(modul) for modul in semester.module]\n",
-    "        }\n",
-    "\n",
-    "    def module_zu_dict(self, modul):\n",
-    "        return {\n",
-    "            \"titel\": modul.titel,\n",
-    "            \"ects\": modul.ects,\n",
-    "            \"pflicht\": modul.pflicht,\n",
-    "            \"note\": modul.note,\n",
-    "            \"bewertung\": modul.bewertung,\n",
-    "            \"pruefungsleistungen\": [self.pruefungsleistung_zu_dict(p) for p in getattr(modul, 'pruefungsleistungen', [])]\n",
-    "        }\n",
-    "\n",
-    "    def pruefungsleistung_zu_dict(self, pruefungsleistung):\n",
-    "        return {\n",
-    "            \"titel\": pruefungsleistung.titel,\n",
-    "            \"max_punkte\": pruefungsleistung.max_punkte,\n",
-    "            \"erreichte_punkte\": pruefungsleistung.erreichte_punkte,\n",
-    "            \"datum\": pruefungsleistung.datum\n",
-    "        }\n",
-    "\n",
-    "    # Methoden zum Wiederherstellen der Objekte aus Dictionaries\n",
-    "\n",
-    "    def dict_zu_user(self, d):\n",
-    "        studiengang = self.dict_zu_studiengang(d[\"studiengang\"])\n",
-    "        return User(d[\"name\"], d[\"matrikelnummer\"], studiengang)\n",
-    "\n",
-    "    def dict_zu_studiengang(self, d):\n",
-    "        studiengang = Studiengang(d[\"name\"])\n",
-    "        for sem_dict in d[\"semester\"]:\n",
-    "            studiengang.semester.append(self.dict_zu_semester(sem_dict))\n",
-    "        return studiengang\n",
-    "\n",
-    "    def dict_zu_semester(self, d):\n",
-    "        semester = Semester(d[\"name\"])\n",
-    "        for modul_dict in d[\"module\"]:\n",
-    "            semester.module.append(self.dict_zu_module(modul_dict))\n",
-    "        return semester\n",
-    "\n",
-    "    def dict_zu_module(self, d):\n",
-    "        modul = Module(d[\"titel\"], d[\"ects\"], d[\"pflicht\"])\n",
-    "        modul.note = d.get(\"note\")\n",
-    "        modul.bewertung = d.get(\"bewertung\")\n",
-    "        # Prüfungsleistungen hinzufügen, falls vorhanden\n",
-    "        for p_dict in d.get(\"pruefungsleistungen\", []):\n",
-    "            modul.pruefungsleistungen.append(self.dict_zu_pruefungsleistung(p_dict))\n",
-    "        return modul\n",
-    "\n",
-    "    def dict_zu_pruefungsleistung(self, d):\n",
-    "        return Pruefungsleistung(\n",
-    "            d[\"titel\"],\n",
-    "            d[\"max_punkte\"],\n",
-    "            d.get(\"erreichte_punkte\"),\n",
-    "            d.get(\"datum\")\n",
-    "        )\n",
-    "\n",
-    "\n",
-    "def modul_uebersicht_dataframe(user):\n",
-    "    \"\"\"\n",
-    "    Erstellt einen DataFrame mit allen Modulen und Prüfungsleistungen eines Users.\n",
-    "\n",
-    "    :param user: User-Objekt\n",
-    "    :return: pandas DataFrame mit allen relevanten Spalten\n",
-    "    \"\"\"\n",
-    "    daten = []\n",
-    "    for semester in user.studiengang.semester:\n",
-    "        for modul in semester.module:\n",
-    "            for pruef in getattr(modul, 'pruefungsleistungen', []):\n",
-    "                prozent = pruef.prozent()\n",
-    "                note = modul.note if modul.note is not None else \"-\"\n",
-    "                bewertung = modul.bewertung if modul.bewertung is not None else \"-\"\n",
-    "                status = \"bestanden\" if modul.ist_bestanden() else \"nicht bestanden\"\n",
-    "                daten.append({\n",
-    "                    \"Semester\": semester.name,\n",
-    "                    \"Modul\": modul.titel,\n",
-    "                    \"Prüfungsleistung\": pruef.titel,\n",
-    "                    \"Max. Punkte\": pruef.max_punkte,\n",
-    "                    \"Erreichte Punkte\": pruef.erreichte_punkte if pruef.erreichte_punkte is not None else \"-\",\n",
-    "                    \"Prozent\": prozent,\n",
-    "                    \"Note\": note,\n",
-    "                    \"Bewertung\": bewertung,\n",
-    "                    \"Status\": status\n",
-    "                })\n",
-    "    df = pd.DataFrame(daten)\n",
-    "    return df\n",
-    "\n",
-    "\n",
-    "def plot_ects_fortschritt(user):\n",
-    "    \"\"\"\n",
-    "    Erstellt ein einfaches Balkendiagramm für den ECTS-Fortschritt eines Users.\n",
-    "\n",
-    "    :param user: User-Objekt\n",
-    "    \"\"\"\n",
-    "    erreicht = user.aktueller_ects()\n",
-    "    ziel = 180  # Beispiel für Bachelor\n",
-    "    plt.bar(['Erreicht', 'Ziel'], [erreicht, ziel], color=['green', 'gray'])\n",
-    "    plt.ylabel('ECTS')\n",
-    "    plt.title('ECTS-Fortschritt')\n",
-    "    plt.show()\n",
-    "\n",
-    "\n",
-    "def dashboard_gui(user):\n",
-    "    \"\"\"\n",
-    "    Erstellt ein einfaches Dashboard-Fenster mit Tabelle und ECTS-Diagramm.\n",
-    "\n",
-    "    :param user: User-Objekt\n",
-    "    \"\"\"\n",
-    "    df = modul_uebersicht_dataframe(user)\n",
-    "\n",
-    "    root = tk.Tk()\n",
-    "    root.title(\"Studien-Dashboard\")\n",
-    "\n",
-    "    # Tabelle anzeigen\n",
-    "    tree = ttk.Treeview(root, columns=list(df.columns), show='headings')\n",
-    "    for col in df.columns:\n",
-    "        tree.heading(col, text=col)\n",
-    "        tree.column(col, width=100)\n",
-    "    for _, row in df.iterrows():\n",
-    "        tree.insert('', tk.END, values=list(row))\n",
-    "    tree.pack(fill='x')\n",
-    "\n",
-    "    # Diagramm (matplotlib) einbetten\n",
-    "    fig, ax = plt.subplots(figsize=(4,2))\n",
-    "    erreicht = user.aktueller_ects()\n",
-    "    ziel = 180\n",
-    "    ax.bar(['Erreicht', 'Ziel'], [erreicht, ziel], color=['green', 'gray'])\n",
-    "    ax.set_ylabel('ECTS')\n",
-    "    ax.set_title('ECTS-Fortschritt')\n",
-    "    canvas = FigureCanvasTkAgg(fig, master=root)\n",
-    "    canvas.draw()\n",
-    "    canvas.get_tk_widget().pack()\n",
-    "\n",
-    "    root.mainloop()"
-   ]
-  }
- ],
- "metadata": {
-  "kernelspec": {
-   "display_name": "Python [conda env:base] *",
-   "language": "python",
-   "name": "conda-base-py"
-  },
-  "language_info": {
-   "codemirror_mode": {
-    "name": "ipython",
-    "version": 3
-   },
-   "file_extension": ".py",
-   "mimetype": "text/x-python",
-   "name": "python",
-   "nbconvert_exporter": "python",
-   "pygments_lexer": "ipython3",
-   "version": "3.12.7"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 5
-}
+from abc import ABC, abstractmethod
+from enum import Enum
+from datetime import datetime, date
+from typing import List, Dict, Optional, Union
+import json
+
+
+class IUBewertungsmaßstab:
+    """Einheitlicher Bewertungsmaßstab der IU Internationale Hochschule"""
+
+    NOTEN_SKALA = {
+        1.0: "Sehr gut",
+        1.3: "Sehr gut",
+        1.7: "Gut", 
+        2.0: "Gut",
+        2.3: "Gut",
+        2.7: "Befriedigend",
+        3.0: "Befriedigend", 
+        3.3: "Befriedigend",
+        3.7: "Ausreichend",
+        4.0: "Ausreichend",
+        5.0: "Nicht ausreichend"
+    }
+
+    BESTANDEN_GRENZE = 4.0
+
+    @classmethod
+    def ist_bestanden(cls, note: float) -> bool:
+        return note <= cls.BESTANDEN_GRENZE
+
+    @classmethod
+    def note_zu_text(cls, note: float) -> str:
+        return cls.NOTEN_SKALA.get(note, "Ungültige Note")
+
+    @classmethod
+    def gueltige_noten(cls) -> List[float]:
+        return list(cls.NOTEN_SKALA.keys())
+
+
+class PruefungsleistungsTyp(Enum):
+    """Nur die benötigten Prüfungsleistungstypen für IU Medizinische Informatik"""
+    KLAUSUR = "Klausur"
+    ADVANCED_WORKBOOK = "Advanced Workbook"
+    PORTFOLIO = "Portfolio"
+
+
+class StudiengangTyp(Enum):
+    BACHELOR = "Bachelor"
+    MASTER = "Master"
+    MBA = "MBA"
+
+
+class ModulStatus(Enum):
+    NICHT_BEGONNEN = "Nicht begonnen"
+    IN_BEARBEITUNG = "In Bearbeitung"
+    BESTANDEN = "Bestanden"
+    NICHT_BESTANDEN = "Nicht bestanden"
+
+
+class Pruefungsleistung(ABC):
+    def __init__(self, typ: PruefungsleistungsTyp, note: Optional[float] = None, 
+                 datum: Optional[date] = None, versuch: int = 1):
+        self.typ = typ
+        self._note = note
+        self.datum = datum
+        self.versuch = versuch
+        self.status = "Offen"
+
+    @property
+    def note(self) -> Optional[float]:
+        return self._note
+
+    @note.setter
+    def note(self, value: Optional[float]):
+        if value is not None:
+            if value not in IUBewertungsmaßstab.gueltige_noten():
+                raise ValueError(f"Ungültige Note: {value}")
+            self._note = value
+            self.status = "Bestanden" if IUBewertungsmaßstab.ist_bestanden(value) else "Nicht bestanden"
+        else:
+            self._note = None
+            self.status = "Offen"
+
+    def ist_bestanden(self) -> bool:
+        return self.note is not None and IUBewertungsmaßstab.ist_bestanden(self.note)
+
+    def wurde_abgelegt(self) -> bool:
+        return self.note is not None
+
+    @abstractmethod
+    def get_details(self) -> Dict:
+        pass
+
+    def to_dict(self) -> Dict:
+        return {
+            'typ': self.typ.value,
+            'note': self.note,
+            'datum': self.datum.isoformat() if self.datum else None,
+            'versuch': self.versuch,
+            'status': self.status,
+            'details': self.get_details()
+        }
+
+
+class Klausur(Pruefungsleistung):
+    def __init__(self, dauer_minuten: int = 120, **kwargs):
+        super().__init__(PruefungsleistungsTyp.KLAUSUR, **kwargs)
+        self.dauer_minuten = dauer_minuten
+
+    def get_details(self) -> Dict:
+        return {
+            'dauer_minuten': self.dauer_minuten,
+            'beschreibung': f'Klausur ({self.dauer_minuten} Min.)'
+        }
+
+
+class AdvancedWorkbook(Pruefungsleistung):
+    def __init__(self, bearbeitungszeit_wochen: int = 4, **kwargs):
+        super().__init__(PruefungsleistungsTyp.ADVANCED_WORKBOOK, **kwargs)
+        self.bearbeitungszeit_wochen = bearbeitungszeit_wochen
+
+    def get_details(self) -> Dict:
+        return {
+            'bearbeitungszeit_wochen': self.bearbeitungszeit_wochen,
+            'beschreibung': f'Advanced Workbook ({self.bearbeitungszeit_wochen} Wochen)'
+        }
+
+
+class Portfolio(Pruefungsleistung):
+    def __init__(self, anzahl_aufgaben: int = 3, bearbeitungszeit_wochen: int = 8, **kwargs):
+        super().__init__(PruefungsleistungsTyp.PORTFOLIO, **kwargs)
+        self.anzahl_aufgaben = anzahl_aufgaben
+        self.bearbeitungszeit_wochen = bearbeitungszeit_wochen
+
+    def get_details(self) -> Dict:
+        return {
+            'anzahl_aufgaben': self.anzahl_aufgaben,
+            'bearbeitungszeit_wochen': self.bearbeitungszeit_wochen,
+            'beschreibung': f'Portfolio ({self.anzahl_aufgaben} Aufgaben)'
+        }
+
+
+class Modul:
+    def __init__(self, titel: str, ects: int, pflicht: bool = True):
+        self.titel = titel
+        self.ects = ects
+        self.pflicht = pflicht
+        self.pruefungsleistungen: List[Pruefungsleistung] = []
+
+    def add_pruefungsleistung(self, pruefungsleistung: Pruefungsleistung):
+        self.pruefungsleistungen.append(pruefungsleistung)
+
+    def ist_bestanden(self) -> bool:
+        if not self.pruefungsleistungen:
+            return False
+        return all(pl.ist_bestanden() for pl in self.pruefungsleistungen)
+
+    def get_status(self) -> ModulStatus:
+        if not self.pruefungsleistungen:
+            return ModulStatus.NICHT_BEGONNEN
+        alle_abgelegt = all(pl.wurde_abgelegt() for pl in self.pruefungsleistungen)
+        if alle_abgelegt:
+            return ModulStatus.BESTANDEN if self.ist_bestanden() else ModulStatus.NICHT_BESTANDEN
+        else:
+            return ModulStatus.IN_BEARBEITUNG
+
+    def erreichte_ects(self) -> int:
+        return self.ects if self.ist_bestanden() else 0
+
+    def get_durchschnittsnote(self) -> Optional[float]:
+        noten = [pl.note for pl in self.pruefungsleistungen if pl.note is not None]
+        if not noten:
+            return None
+        return round(sum(noten) / len(noten), 1)
+
+    def to_dict(self) -> Dict:
+        return {
+            'titel': self.titel,
+            'ects': self.ects,
+            'pflicht': self.pflicht,
+            'status': self.get_status().value,
+            'durchschnittsnote': self.get_durchschnittsnote(),
+            'pruefungsleistungen': [pl.to_dict() for pl in self.pruefungsleistungen]
+        }
+
+
+class Semester:
+    def __init__(self, nummer: int, startdatum: date, enddatum: date):
+        self.nummer = nummer
+        self.startdatum = startdatum
+        self.enddatum = enddatum
+        self.module: List[Modul] = []
+
+    def add_modul(self, modul: Modul):
+        self.module.append(modul)
+
+    def erreichte_ects(self) -> int:
+        return sum(modul.erreichte_ects() for modul in self.module)
+
+    def gesamt_ects_semester(self) -> int:
+        return sum(modul.ects for modul in self.module)
+
+    def durchschnittsnote(self) -> Optional[float]:
+        gewichtete_summe = 0
+        gesamt_ects = 0
+        for modul in self.module:
+            if modul.ist_bestanden():
+                note = modul.get_durchschnittsnote()
+                if note is not None:
+                    gewichtete_summe += note * modul.ects
+                    gesamt_ects += modul.ects
+        return round(gewichtete_summe / gesamt_ects, 1) if gesamt_ects > 0 else None
+
+    def to_dict(self) -> Dict:
+        return {
+            'nummer': self.nummer,
+            'startdatum': self.startdatum.isoformat(),
+            'enddatum': self.enddatum.isoformat(),
+            'gesamt_ects': self.gesamt_ects_semester(),
+            'erreichte_ects': self.erreichte_ects(),
+            'durchschnittsnote': self.durchschnittsnote(),
+            'module': [modul.to_dict() for modul in self.module]
+        }
+
+
+class Studiengang:
+    def __init__(self, name: str, abschluss: str, typ: StudiengangTyp, 
+                 start_studium: date, ziel_note: float = 2.0, 
+                 ziel_dauer_semester: int = 6):
+        self.name = name
+        self.abschluss = abschluss
+        self.typ = typ
+        self.start_studium = start_studium
+        self.ziel_note = ziel_note
+        self.ziel_dauer_semester = ziel_dauer_semester
+        self.semester: List[Semester] = []
+
+    def add_semester(self, semester: Semester):
+        self.semester.append(semester)
+
+    def berechne_gesamt_ects(self) -> int:
+        return sum(semester.erreichte_ects() for semester in self.semester)
+
+    def berechne_gesamtnote(self) -> Optional[float]:
+        gewichtete_summe = 0
+        gesamt_ects = 0
+        for semester in self.semester:
+            for modul in semester.module:
+                if modul.ist_bestanden():
+                    note = modul.get_durchschnittsnote()
+                    if note is not None:
+                        gewichtete_summe += note * modul.ects
+                        gesamt_ects += modul.ects
+        return round(gewichtete_summe / gesamt_ects, 1) if gesamt_ects > 0 else None
+
+    def ist_im_zeitplan(self) -> bool:
+        aktuelles_semester = len(self.semester)
+        return aktuelles_semester <= self.ziel_dauer_semester
+
+    def ziel_erreicht(self) -> bool:
+        gesamtnote = self.berechne_gesamtnote()
+        return gesamtnote is not None and gesamtnote <= self.ziel_note
+
+    def to_dict(self) -> Dict:
+        return {
+            'name': self.name,
+            'abschluss': self.abschluss,
+            'typ': self.typ.value,
+            'start_studium': self.start_studium.isoformat(),
+            'ziel_note': self.ziel_note,
+            'ziel_dauer_semester': self.ziel_dauer_semester,
+            'gesamt_ects': self.berechne_gesamt_ects(),
+            'gesamtnote': self.berechne_gesamtnote(),
+            'im_zeitplan': self.ist_im_zeitplan(),
+            'ziel_erreicht': self.ziel_erreicht(),
+            'semester': [semester.to_dict() for semester in self.semester]
+        }
+
+
+class User:
+    def __init__(self, user_id: str, name: str, email: str, rolle: str = "Student"):
+        self.user_id = user_id
+        self.name = name
+        self.email = email
+        self.rolle = rolle
+        self.studiengaenge: List[Studiengang] = []
+        self.erstellt_am = datetime.now()
+
+    def add_studiengang(self, studiengang: Studiengang):
+        self.studiengaenge.append(studiengang)
+
+    def get_aktueller_studiengang(self) -> Optional[Studiengang]:
+        return self.studiengaenge[-1] if self.studiengaenge else None
+
+    def zeige_dashboard(self) -> Dict:
+        aktueller_studiengang = self.get_aktueller_studiengang()
+        if not aktueller_studiengang:
+            return {"error": "Kein Studiengang gefunden"}
+        return {
+            'user': {
+                'name': self.name,
+                'email': self.email,
+                'rolle': self.rolle
+            },
+            'studiengang': aktueller_studiengang.to_dict(),
+            'fortschritt': {
+                'gesamt_ects': aktueller_studiengang.berechne_gesamt_ects(),
+                'gesamtnote': aktueller_studiengang.berechne_gesamtnote(),
+                'im_zeitplan': aktueller_studiengang.ist_im_zeitplan(),
+                'ziel_erreicht': aktueller_studiengang.ziel_erreicht()
+            }
+        }
+
+
+class DashboardController:
+    def __init__(self):
+        self.users: Dict[str, User] = {}
+        self.current_user: Optional[User] = None
+
+    def create_user(self, user_id: str, name: str, email: str, rolle: str = "Student") -> User:
+        user = User(user_id, name, email, rolle)
+        self.users[user_id] = user
+        return user
+
+    def login_user(self, user_id: str) -> bool:
+        if user_id in self.users:
+            self.current_user = self.users[user_id]
+            return True
+        return False
+
+    def create_studiengang(self, name: str, abschluss: str, typ: StudiengangTyp,
+                          start_studium: date, ziel_note: float = 2.0,
+                          ziel_dauer_semester: int = 6) -> Optional[Studiengang]:
+        if not self.current_user:
+            return None
+        studiengang = Studiengang(name, abschluss, typ, start_studium, ziel_note, ziel_dauer_semester)
+        self.current_user.add_studiengang(studiengang)
+        return studiengang
+
+    def create_pruefungsleistung(self, typ: PruefungsleistungsTyp, **kwargs) -> Pruefungsleistung:
+        """Factory-Methode für Prüfungsleistungen"""
+        if typ == PruefungsleistungsTyp.KLAUSUR:
+            return Klausur(**kwargs)
+        elif typ == PruefungsleistungsTyp.ADVANCED_WORKBOOK:
+            return AdvancedWorkbook(**kwargs)
+        elif typ == PruefungsleistungsTyp.PORTFOLIO:
+            return Portfolio(**kwargs)
+        else:
+            raise ValueError(f"Unbekannter Prüfungsleistungstyp: {typ}")
+
+    def get_dashboard_data(self) -> Optional[Dict]:
+        if not self.current_user:
+            return None
+        return self.current_user.zeige_dashboard()
+
+
+class DashboardVisualization:
+    """Klasse für die Erstellung der Dashboard-Visualisierung"""
+    
+    def __init__(self, controller):
+        self.controller = controller
+    
+    def generate_html_dashboard(self) -> str:
+        """Generiert das HTML-Dashboard mit den IU-spezifischen Modulen"""
+        dashboard_data = self.controller.get_dashboard_data()
+        if not dashboard_data:
+            return "<p>Keine Dashboard-Daten verfügbar</p>"
+        
+        studiengang = dashboard_data['studiengang']
+        user = dashboard_data['user']
+        
+        # Berechne Gesamtfortschritt (180 ECTS für Bachelor Medizinische Informatik)
+        gesamt_ects_ziel = 180
+        erreichte_ects = studiengang['gesamt_ects']
+        fortschritt_prozent = round((erreichte_ects / gesamt_ects_ziel) * 100)
+        
+        # Aktuelles Semester ermitteln
+        aktuelles_semester = len(studiengang['semester'])
+        
+        # Zielnote vs. aktuelle Note
+        ziel_note = studiengang['ziel_note']
+        aktuelle_note = studiengang['gesamtnote'] or 0.0
+        note_differenz = round(ziel_note - aktuelle_note, 1) if aktuelle_note > 0 else 0
+        
+        html = f"""
+        <!DOCTYPE html>
+        <html lang="de">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>IU Studiendashboard - {user['name']}</title>
+            <style>
+                * {{
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }}
+                
+                body {{
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background-color: #f5f5f5;
+                    color: #333;
+                    line-height: 1.6;
+                }}
+                
+                .container {{
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    padding: 20px;
+                }}
+                
+                .dashboard-header {{
+                    display: grid;
+                    grid-template-columns: 1fr 1fr 1fr;
+                    gap: 20px;
+                    margin-bottom: 30px;
+                }}
+                
+                .card {{
+                    background: white;
+                    border-radius: 12px;
+                    padding: 20px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    border: 1px solid #e0e0e0;
+                }}
+                
+                .card h3 {{
+                    font-size: 14px;
+                    font-weight: 600;
+                    color: #666;
+                    margin-bottom: 15px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }}
+                
+                .progress-card {{
+                    position: relative;
+                }}
+                
+                .progress-circle {{
+                    width: 80px;
+                    height: 80px;
+                    border-radius: 50%;
+                    background: conic-gradient(#4CAF50 0deg {fortschritt_prozent * 3.6}deg, #e0e0e0 {fortschritt_prozent * 3.6}deg 360deg);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-bottom: 10px;
+                }}
+                
+                .progress-inner {{
+                    width: 60px;
+                    height: 60px;
+                    background: white;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: bold;
+                    color: #4CAF50;
+                }}
+                
+                .ects-display {{
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: #333;
+                    margin-bottom: 5px;
+                }}
+                
+                .note-display {{
+                    font-size: 48px;
+                    font-weight: bold;
+                    color: #4CAF50;
+                    margin-bottom: 10px;
+                }}
+                
+                .note-improvement {{
+                    color: #4CAF50;
+                    font-size: 14px;
+                }}
+                
+                .status-good {{
+                    color: #4CAF50;
+                    font-weight: 500;
+                }}
+                
+                .navigation {{
+                    display: flex;
+                    background: white;
+                    border-radius: 12px;
+                    margin-bottom: 20px;
+                    overflow: hidden;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }}
+                
+                .nav-item {{
+                    flex: 1;
+                    padding: 15px 20px;
+                    text-align: center;
+                    cursor: pointer;
+                    border-right: 1px solid #e0e0e0;
+                    transition: background-color 0.3s;
+                }}
+                
+                .nav-item:last-child {{
+                    border-right: none;
+                }}
+                
+                .nav-item.active {{
+                    background-color: #4CAF50;
+                    color: white;
+                    font-weight: 600;
+                }}
+                
+                .nav-item:hover:not(.active) {{
+                    background-color: #f0f0f0;
+                }}
+                
+                .module-section {{
+                    background: white;
+                    border-radius: 12px;
+                    padding: 20px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }}
+                
+                .section-header {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 20px;
+                }}
+                
+                .section-title {{
+                    font-size: 20px;
+                    font-weight: 600;
+                    color: #333;
+                }}
+                
+                .add-button {{
+                    background: #4CAF50;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-weight: 500;
+                }}
+                
+                .semester-select {{
+                    margin-bottom: 20px;
+                }}
+                
+                .semester-select select {{
+                    padding: 10px 15px;
+                    border: 1px solid #ddd;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    min-width: 200px;
+                }}
+                
+                .module-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 10px;
+                }}
+                
+                .module-table th {{
+                    background: #4CAF50;
+                    color: white;
+                    padding: 15px;
+                    text-align: left;
+                    font-weight: 600;
+                }}
+                
+                .module-table td {{
+                    padding: 15px;
+                    border-bottom: 1px solid #e0e0e0;
+                    vertical-align: top;
+                }}
+                
+                .module-table tr:nth-child(even) {{
+                    background-color: #f9f9f9;
+                }}
+                
+                .status-badge {{
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 5px;
+                    font-weight: 500;
+                }}
+                
+                .status-badge.passed {{
+                    color: #4CAF50;
+                }}
+                
+                .status-badge.in-progress {{
+                    color: #FF9800;
+                }}
+                
+                .status-badge.not-started {{
+                    color: #999;
+                }}
+                
+                .checkmark {{
+                    color: #4CAF50;
+                    font-weight: bold;
+                }}
+                
+                .summary-row {{
+                    background: #f0f8f0 !important;
+                    font-weight: 600;
+                }}
+                
+                .footer {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-top: 20px;
+                    padding: 15px 20px;
+                    background: #f9f9f9;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    color: #666;
+                }}
+                
+                .module-title {{
+                    font-weight: 600;
+                    color: #333;
+                    margin-bottom: 3px;
+                }}
+                
+                .module-subtitle {{
+                    font-size: 12px;
+                    color: #666;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <!-- Dashboard Header Cards -->
+                <div class="dashboard-header">
+                    <div class="card progress-card">
+                        <h3>GESAMTFORTSCHRITT</h3>
+                        <div class="progress-circle">
+                            <div class="progress-inner">{fortschritt_prozent}%</div>
+                        </div>
+                        <div class="ects-display">{erreichte_ects}/{gesamt_ects_ziel} ECTS</div>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>NOTENDURCHSCHNITT</h3>
+                        <div class="note-display">{aktuelle_note if aktuelle_note > 0 else '—'}</div>
+                        {f'<div class="note-improvement">▲ {abs(note_differenz)} besser als Ziel</div>' if note_differenz < 0 else f'<div class="note-improvement">Ziel: {ziel_note}</div>'}
+                    </div>
+                    
+                    <div class="card">
+                        <h3>ZEITPLANUNG</h3>
+                        <div style="margin-bottom: 10px; font-size: 18px; font-weight: 600;">
+                            Aktuell: {aktuelles_semester}. Semester
+                        </div>
+                        <div class="status-good">✓ Im Zeitplan</div>
+                    </div>
+                </div>
+                
+                <!-- Navigation -->
+                <div class="navigation">
+                    <div class="nav-item active">MODULÜBERSICHT</div>
+                    <div class="nav-item">NOTENVERTEILUNG</div>
+                    <div class="nav-item">ZEITPLANUNG</div>
+                    <div class="nav-item">PRÜFUNGSTERMINE</div>
+                </div>
+                
+                <!-- Module Section -->
+                <div class="module-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Modulübersicht - Medizinische Informatik</h2>
+                        <button class="add-button">+ Modul</button>
+                    </div>
+                    
+                    <div class="semester-select">
+                        <label>Semesterauswahl: </label>
+                        <select>
+                            <option>1. Semester</option>
+                        </select>
+                    </div>
+                    
+                    <table class="module-table">
+                        <thead>
+                            <tr>
+                                <th>Modul</th>
+                                <th>ECTS</th>
+                                <th>Prüfungsleistung</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        """
+        
+        # Module aus dem ersten Semester hinzufügen
+        if studiengang['semester']:
+            semester_data = studiengang['semester'][0]
+            gesamt_ects_semester = 0
+            bestandene_module = 0
+            durchschnitt_noten = []
+            
+            for modul in semester_data['module']:
+                # Status bestimmen
+                if modul['status'] == "Bestanden":
+                    status_class = "passed"
+                    status_icon = "✓"
+                    bestandene_module += 1
+                elif modul['status'] == "In Bearbeitung":
+                    status_class = "in-progress"
+                    status_icon = "○"
+                else:
+                    status_class = "not-started"
+                    status_icon = "○"
+                
+                note_display = f"{modul['durchschnittsnote']}" if modul['durchschnittsnote'] else "—"
+                
+                # Prüfungsleistung Details
+                pruefungsleistung_text = ""
+                if modul['pruefungsleistungen']:
+                    pl = modul['pruefungsleistungen'][0]
+                    pruefungsleistung_text = pl['details']['beschreibung']
+                
+                gesamt_ects_semester += modul['ects']
+                if modul['durchschnittsnote']:
+                    durchschnitt_noten.append(modul['durchschnittsnote'])
+                
+                html += f"""
+                            <tr>
+                                <td>
+                                    <div class="module-title">{modul['titel']}</div>
+                                    <div class="module-subtitle">Pflichtmodul</div>
+                                </td>
+                                <td>{modul['ects']}</td>
+                                <td>{pruefungsleistung_text}</td>
+                                <td><span class="status-badge {status_class}"><span class="checkmark">{status_icon}</span> {note_display}</span></td>
+                            </tr>
+                """
+            
+            # Zusammenfassung
+            semester_durchschnitt = round(sum(durchschnitt_noten) / len(durchschnitt_noten), 1) if durchschnitt_noten else 0
+            html += f"""
+                            <tr class="summary-row">
+                                <td><strong>Gesamt ECTS im Semester: {gesamt_ects_semester}</strong></td>
+                                <td><strong>{erreichte_ects}</strong></td>
+                                <td><strong>Durchschnitt: {semester_durchschnitt}</strong></td>
+                                <td><span class="status-badge passed"><span class="checkmark">✓</span> {bestandene_module}/{len(semester_data['module'])} bestanden</span></td>
+                            </tr>
+            """
+        
+        html += """
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Footer -->
+                <div class="footer">
+                    <div>Datenstand: 06.05.2025 | IU Internationale Hochschule</div>
+                    <div>Nächste Prüfung: Portfolio OOP (in Bearbeitung)</div>
+                </div>
+            </div>
+            
+            <script>
+                // Navigation functionality
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.addEventListener('click', function() {
+                        document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                        this.classList.add('active');
+                    });
+                });
+                
+                // Add Module functionality
+                document.querySelector('.add-button').addEventListener('click', function() {
+                    alert('Modul hinzufügen - Funktionalität würde hier implementiert werden');
+                });
+            </script>
+        </body>
+        </html>
+        """
+        
+        return html
+
+
+# Beispieldaten mit den spezifischen IU-Modulen erstellen
+def create_iu_medizinische_informatik_data():
+    """Erstellt Beispieldaten mit den spezifischen IU-Modulen für Medizinische Informatik"""
+    controller = DashboardController()
+    
+    # Benutzer erstellen
+    user = controller.create_user("IU14125513", "Christine Münzberg", "christine_muenzberg@web.de")
+    controller.login_user("IU14125513")
+    
+    # Studiengang erstellen
+    studiengang = controller.create_studiengang(
+        "Medizinische Informatik", 
+        "Bachelor of Science", 
+        StudiengangTyp.BACHELOR,
+        date(2025, 1, 1),
+        ziel_note=2.0,
+        ziel_dauer_semester=8
+    )
+    
+    # Erstes Semester erstellen
+    semester1 = Semester(1, date(2025, 1, 1), date(2025, 6, 30))
+    studiengang.add_semester(semester1)
+    
+    # Module mit IU-spezifischen Prüfungsleistungen erstellen
+
+    # Einführung in das wissenschaftliche Arbeiten für IT und Technik - Advanced Workbook
+    einfuehrung_wiss = Modul("Einführung in das wissenschaftliche Arbeiten für IT und Technik", 5, True)
+    workbook_wiss = controller.create_pruefungsleistung(
+        PruefungsleistungsTyp.ADVANCED_WORKBOOK,
+        bearbeitungszeit_wochen=6,
+        note=2.0,
+        datum=date(2025, 3, 29)
+    )
+    einfuehrung_wiss.add_pruefungsleistung(workbook_wiss)
+    semester1.add_modul(einfuehrung_wiss)
+
+    # Medizin für Nichtmediziner:innen I - Klausur
+    medizin_nichtmed = Modul("Medizin für Nichtmediziner:innen I", 5, True)
+    klausur_med = controller.create_pruefungsleistung(
+        PruefungsleistungsTyp.KLAUSUR,
+        dauer_minuten=90,
+        note=3.3,
+        datum=date(2024, 12, 10)
+    )
+    medizin_nichtmed.add_pruefungsleistung(klausur_med)
+    semester1.add_modul(medizin_nichtmed)
+
+    # Einführung in die Programmierung mit Python - Klausur
+    programmierung_python = Modul("Einführung in die Programmierung mit Python", 5, True)
+    klausur_prog = controller.create_pruefungsleistung(
+        PruefungsleistungsTyp.KLAUSUR,
+        dauer_minuten=90,
+        note=2.0,
+        datum=date(2025, 3, 1)
+    )
+    programmierung_python.add_pruefungsleistung(klausur_prog)
+    semester1.add_modul(programmierung_python)
+
+    # E-Health - Klausur
+    ehealth = Modul("E-Health", 5, True)
+    klausur_ehealth = controller.create_pruefungsleistung(
+        PruefungsleistungsTyp.KLAUSUR,
+        dauer_minuten=90,
+        note=2.0,
+        datum=date(2025, 2, 1)
+    )
+    ehealth.add_pruefungsleistung(klausur_ehealth)
+    semester1.add_modul(ehealth)
+
+    # Projekt: Objektorientierte und funktionale Programmierung mit Python - Portfolio
+    projekt_oop = Modul("Projekt: Objektorientierte und funktionale Programmierung mit Python", 5, True)
+    portfolio_oop = controller.create_pruefungsleistung(
+        PruefungsleistungsTyp.PORTFOLIO,
+        anzahl_aufgaben=4,
+        bearbeitungszeit_wochen=6
+        # Keine Note gesetzt - noch in Bearbeitung
+    )
+    projekt_oop.add_pruefungsleistung(portfolio_oop)
+    semester1.add_modul(projekt_oop)
+    
+    return controller
+
+
+# Dashboard generieren und als HTML-Datei speichern
+controller = create_iu_medizinische_informatik_data()
+dashboard_viz = DashboardVisualization(controller)
+html_content = dashboard_viz.generate_html_dashboard()
+
+# HTML-Datei erstellen
+with open('iu_dashboard_final.html', 'w', encoding='utf-8') as f:
+    f.write(html_content)
+
+print("✅ Bereinigtes IU Dashboard wurde erfolgreich erstellt!")
+print("📁 Datei: iu_dashboard_final.html")
+print("🎓 Studiengang: Medizinische Informatik (Bachelor of Science)")
+print("👤 Student: Christine Münzberg (IU14125513)")
+print("\n" + "="*70)
+print("🗑️  ENTFERNTE PRÜFUNGSLEISTUNGSTYPEN:")
+print("❌ FALLSTUDIE")
+print("❌ HAUSARBEIT") 
+print("❌ PRAKTISCHE_PRUEFUNG")
+print("❌ PROJEKT")
+print("\n✅ VERBLEIBENDE PRÜFUNGSLEISTUNGSTYPEN:")
+print("✓ KLAUSUR")
+print("✓ ADVANCED_WORKBOOK")
+print("✓ PORTFOLIO")
+print("\n📚 MODULE IM 1. SEMESTER:")
+print("✅ Einführung in das wissenschaftliche Arbeiten für IT und Technik (5 ECTS) - Advanced Workbook - Note: 2.0")
+print("✅ Medizin für Nichtmediziner:innen I (5 ECTS) - Klausur - Note: 3.3")
+print("✅ Einführung in die Programmierung mit Python (5 ECTS) - Klausur - Note: 2.0")
+print("✅ E-Health (5 ECTS) - Klausur - Note: 2.0")
+print("🔄 Projekt: Objektorientierte und funktionale Programmierung mit Python (5 ECTS) - Portfolio - In Bearbeitung")
+print("="*70)
+print("📊 STATISTIKEN:")
+print("• Erreichte ECTS: 20/25 (80%)")
+print("• Durchschnittsnote: 2.3")
+print("• Fortschritt: 11% (20/180 ECTS)")
+print("• Status: Im Zeitplan")
+print("="*70)
